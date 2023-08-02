@@ -20,8 +20,10 @@ package io.chaldeaprjkt.gamespace.data
 import android.content.Context
 import android.media.AudioManager
 import com.google.gson.Gson
+import io.chaldeaprjkt.gamespace.utils.GameModeUtils
 import javax.inject.Inject
 
+private const val gameSwitchNode = "/proc/touchpanel/game_switch_enable"
 class GameSession @Inject constructor(
     private val context: Context,
     private val appSettings: AppSettings,
@@ -74,6 +76,9 @@ class GameSession @Inject constructor(
         if (appSettings.ringerMode != 3) {
             audioManager.ringerModeInternal = appSettings.ringerMode
         }
+        if (GameModeUtils(context).isFileWritable(gameSwitchNode)) {
+            GameModeUtils(context).writeValue(gameSwitchNode, "1")
+        }
     }
 
     fun unregister() {
@@ -89,6 +94,9 @@ class GameSession @Inject constructor(
         }
         if (appSettings.ringerMode != 3) {
             audioManager.ringerModeInternal = orig.ringerMode
+        }
+        if (GameModeUtils(context).isFileWritable(gameSwitchNode)) {
+            GameModeUtils(context).writeValue(gameSwitchNode, "0")
         }
         state = null
     }
