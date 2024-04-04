@@ -53,7 +53,7 @@ class PanelView @JvmOverloads constructor(
             context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))!!
         val temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0).toInt() / 10
         val degree = "\u2103"
-        val batteryTemp:TextView = findViewById(R.id.batteryTemp)
+        val batteryTemp:TextView = requireViewById(R.id.batteryTemp)
         batteryTemp.text = "$temp$degree"
     }
 
