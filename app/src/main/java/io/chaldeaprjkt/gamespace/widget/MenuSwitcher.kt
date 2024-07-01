@@ -1,15 +1,13 @@
 package io.chaldeaprjkt.gamespace.widget
 
+import android.app.ActivityTaskManager
 import android.content.Context
-import android.hardware.display.DisplayManager
-import android.os.Handler
-import android.os.Looper
 import android.util.AttributeSet
-import android.view.Display
 import android.view.LayoutInflater
+import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.view.Choreographer
+import android.window.TaskFpsCallback
 import io.chaldeaprjkt.gamespace.R
 import io.chaldeaprjkt.gamespace.utils.di.ServiceViewEntryPoint
 import io.chaldeaprjkt.gamespace.utils.dp
@@ -31,47 +29,18 @@ class MenuSwitcher @JvmOverloads constructor(
 
     private val appSettings by lazy { context.entryPointOf<ServiceViewEntryPoint>().appSettings() }
     private val scope = CoroutineScope(Job() + Dispatchers.Main)
+    private val taskManager by lazy { ActivityTaskManager.getService() }
 
-    private val choreographer = Choreographer.getInstance()
-    private var lastFrameTimeNanos: Long = 0
-    private var frameCount = 0
-    private var lastFPSTimeMillis = System.currentTimeMillis()
-    private var fps = 0f
-    private var maxRefreshRate: Float = 60f
-    private var previousFrameNS: Long = 0
-    private var currentFrameNS: Long = 0
-    private var droppedFrames: Int = 0
-
-    private val frameCallback = object : Choreographer.FrameCallback {
-        override fun doFrame(frameTimeNanos: Long) {
-            if (lastFrameTimeNanos > 0) {
-                val droppedFrames = calculateDroppedFrames(lastFrameTimeNanos, frameTimeNanos, maxRefreshRate)
-                frameCount += 1 + droppedFrames
-                val currentTimeMillis = System.currentTimeMillis()
-                val timeDiffMillis = currentTimeMillis - lastFPSTimeMillis
-                if (timeDiffMillis >= 1000) {
-                    fps = (frameCount * 1000f) / timeDiffMillis
-                    onFrameUpdated()
-                    frameCount = 0
-                    lastFPSTimeMillis = currentTimeMillis
-                }
+    private val taskFpsCallback = object : TaskFpsCallback() {
+        override fun onFpsReported(fps: Float) {
+            if (isAttachedToWindow) {
+                onFrameUpdated(fps)
             }
-            lastFrameTimeNanos = frameTimeNanos
-            choreographer?.postFrameCallback(this)
         }
     }
 
-    private fun calculateDroppedFrames(previousFrameNS: Long, currentFrameNS: Long, refreshRate: Float): Int {
-        val frameTimeNS = 1_000_000_000 / refreshRate
-        val frameDurationNS = currentFrameNS - previousFrameNS
-        if (frameDurationNS < frameTimeNS) {
-            return 0
-        } else {
-            return (frameDurationNS.toFloat() / frameTimeNS).toInt() - 1
-        }
-    }
-
-    private val handler = Handler(Looper.getMainLooper())
+    private val wm: WindowManager
+        get() = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     private val content: TextView?
         get() = findViewById(R.id.menu_content)
@@ -98,19 +67,20 @@ class MenuSwitcher @JvmOverloads constructor(
         updateFrameRateBinding()
     }
 
-    private fun onFrameUpdated() = scope.launch {
-        val maxFPS = fps.coerceAtMost(maxRefreshRate)
+    private fun onFrameUpdated(newValue: Float) = scope.launch {
         DecimalFormat("#").apply {
             roundingMode = RoundingMode.HALF_EVEN
-            content?.text = format(maxFPS)
+            content?.text = this.format(newValue)
         }
     }
 
     private fun updateFrameRateBinding() {
         if (showFps) {
-            registerFpsCallback()
+            taskManager?.focusedRootTaskInfo?.taskId?.let {
+                wm.registerTaskFpsCallback(it, Runnable::run, taskFpsCallback)
+            }
         } else {
-            choreographer.removeFrameCallback(frameCallback)
+            wm.unregisterTaskFpsCallback(taskFpsCallback)
         }
     }
 
@@ -124,25 +94,8 @@ class MenuSwitcher @JvmOverloads constructor(
         content?.setCompoundDrawablesRelativeWithIntrinsicBounds(null, ic, null, null)
     }
 
-    private fun getMaxRefreshRate(context: Context): Float {
-        val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        val display = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
-        val displayMode = display?.mode
-        return displayMode?.refreshRate ?: 60f
-    }
-
-    private fun registerFpsCallback() {
-        maxRefreshRate = getMaxRefreshRate(context)
-        choreographer.postFrameCallback(frameCallback)
-        lastFPSTimeMillis = System.currentTimeMillis()
-        handler.postDelayed({
-            choreographer.removeFrameCallback(frameCallback)
-            choreographer.postFrameCallback(frameCallback)
-        }, 100L)
-    }
-
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        choreographer.removeFrameCallback(frameCallback)
+        wm.unregisterTaskFpsCallback(taskFpsCallback)
     }
 }
