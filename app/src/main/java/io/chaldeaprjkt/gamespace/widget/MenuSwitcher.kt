@@ -5,7 +5,6 @@ import android.hardware.display.DisplayManager
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
-import android.util.Log
 import android.view.Display
 import android.view.LayoutInflater
 import android.widget.LinearLayout
@@ -18,13 +17,7 @@ import io.chaldeaprjkt.gamespace.utils.entryPointOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-
-import java.io.File
-import java.io.IOException
-import java.io.RandomAccessFile
 import java.math.RoundingMode
 import java.text.DecimalFormat
 
@@ -32,9 +25,9 @@ class MenuSwitcher @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : LinearLayout(context, attrs) {
 
-    private var fpsInfoNode: RandomAccessFile? = null
-    private var fpsReadJob: Job? = null
-    private var fpsReadInterval = 1000L
+    init {
+        LayoutInflater.from(context).inflate(R.layout.bar_menu_switcher, this, true)
+    }
 
     private val appSettings by lazy { context.entryPointOf<ServiceViewEntryPoint>().appSettings() }
     private val scope = CoroutineScope(Job() + Dispatchers.Main)
@@ -48,26 +41,6 @@ class MenuSwitcher @JvmOverloads constructor(
     private var previousFrameNS: Long = 0
     private var currentFrameNS: Long = 0
     private var droppedFrames: Int = 0
-
-    init {
-        LayoutInflater.from(context).inflate(R.layout.bar_menu_switcher, this, true)
-        initFPSInfoNode()
-    }
-
-    private fun initFPSInfoNode() {
-        val nodePath = resources.getString(R.string.config_fpsInfoSysNode)
-        val file = File(nodePath)
-        if (file.exists() && file.canRead()) {
-            try {
-                fpsInfoNode = RandomAccessFile(nodePath, "r")
-            } catch (e: IOException) {
-                Log.e(TAG, "Error while opening file: $nodePath", e)
-            }
-        } else {
-            Log.e(TAG, "$nodePath does not exist or is not readable")
-        }
-        fpsReadInterval = resources.getInteger(R.integer.config_fpsReadInterval).toLong()
-    }
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -100,43 +73,6 @@ class MenuSwitcher @JvmOverloads constructor(
 
     private val handler = Handler(Looper.getMainLooper())
 
-    private fun startReadingFpsFromNode() {
-        if (fpsReadJob != null) return
-        fpsReadJob = scope.launch {
-            do {
-                fps = measureFps()
-                onFrameUpdated()
-                delay(fpsReadInterval)
-            } while (isActive)
-        }
-    }
-
-    private fun stopReadingFromNode() {
-        if (fpsReadJob == null) return
-        fpsReadJob?.cancel()
-        fpsReadJob = null
-    }
-
-    private fun measureFps(): Float {
-        fpsInfoNode!!.seek(0L)
-        val measuredFps: String
-        try {
-            measuredFps = fpsInfoNode!!.readLine()
-        } catch (e: IOException) {
-            Log.e(TAG, "IOException while reading from FPS node, ${e.message}")
-            return -1.0f
-        }
-        try {
-            val fps: Float = measuredFps.trim().let {
-                if (it.contains(": ")) it.split("\\s+".toRegex())[1] else it
-            }.toFloat()
-            return fps
-        } catch (e: NumberFormatException) {
-            Log.e(TAG, "NumberFormatException occurred while parsing FPS info, ${e.message}")
-        }
-        return -1.0f
-    }
-
     private val content: TextView?
         get() = findViewById(R.id.menu_content)
 
@@ -163,32 +99,18 @@ class MenuSwitcher @JvmOverloads constructor(
     }
 
     private fun onFrameUpdated() = scope.launch {
-        handler.post {
-            val maxFPS = fps.coerceAtMost(maxRefreshRate)
-            DecimalFormat("#").apply {
-                roundingMode = RoundingMode.HALF_EVEN
-                content?.text = format(maxFPS)
-            }
+        val maxFPS = fps.coerceAtMost(maxRefreshRate)
+        DecimalFormat("#").apply {
+            roundingMode = RoundingMode.HALF_EVEN
+            content?.text = format(maxFPS)
         }
-    }
-    
-    private fun canShowFpsFromNode(): Boolean {
-        return fpsInfoNode != null
     }
 
     private fun updateFrameRateBinding() {
         if (showFps) {
-            if (canShowFpsFromNode()) {
-                startReadingFpsFromNode()
-            } else { 
-                registerFpsCallback()
-            }
+            registerFpsCallback()
         } else {
-            if (canShowFpsFromNode()) {
-                stopReadingFromNode()
-            } else { 
-                choreographer.removeFrameCallback(frameCallback)
-            }
+            choreographer.removeFrameCallback(frameCallback)
         }
     }
 
@@ -222,9 +144,5 @@ class MenuSwitcher @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         choreographer.removeFrameCallback(frameCallback)
-    }
-    
-    companion object {
-        private const val TAG = "MenuSwitcher"
     }
 }
