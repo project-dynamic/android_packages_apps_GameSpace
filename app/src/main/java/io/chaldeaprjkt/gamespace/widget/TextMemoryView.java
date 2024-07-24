@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2022 riceDroid Android Project
+ *               2023-2024 the risingOS Android Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,17 +21,13 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
-import android.view.View;
 import android.widget.TextView;
-
-import java.lang.Runnable;
 
 import io.chaldeaprjkt.gamespace.R;
 
 public class TextMemoryView extends TextView {
 
     private ActivityManager mActivityManager;
-
     private Handler mHandler;
     private MemInfoWorker mWorker;
 
@@ -42,17 +39,15 @@ public class TextMemoryView extends TextView {
         mWorker = new MemInfoWorker();
     }
 
-    /* Hijack this method to detect visibility rather than
-     * onVisibilityChanged() because the the latter one can be
-     * influenced by more factors, leading to unstable behavior. */
     @Override
     public void setVisibility(int visibility) {
         super.setVisibility(visibility);
 
-        if (visibility == VISIBLE)
+        if (visibility == VISIBLE) {
             mHandler.post(mWorker);
-        else
+        } else {
             mHandler.removeCallbacks(mWorker);
+        }
     }
 
     @Override
@@ -74,8 +69,10 @@ public class TextMemoryView extends TextView {
             mActivityManager.getMemoryInfo(memoryInfo);
             long usedMemory = memoryInfo.totalMem - memoryInfo.availMem;
             int usedMemoryPercentage = (int) ((usedMemory * 100) / memoryInfo.totalMem);
-            setText(getContext().getString(R.string.memory_format, usedMemoryPercentage));
+            String ramUsage = getContext().getString(R.string.ram_usage) + " " + usedMemoryPercentage + "%";
+            setText(ramUsage);
             mHandler.postDelayed(this, 1000);
         }
     }
 }
+
