@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2021 Chaldeaprjkt
  * Copyright (C) 2023 risingOS Android Project
+ *               2022 crDroid Android Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,6 +66,10 @@ class AppSettings @Inject constructor(private val context: Context) {
         get() = db.getString(KEY_RINGER_MODE, "3")?.toIntOrNull() ?: 3
         set(value) = db.edit().putString(KEY_RINGER_MODE, value.toString()).apply()
 
+    var menuOpacity: Int
+        get() = db.getInt(KEY_MENU_OPACITY, 75)
+        set(value) = db.edit().putInt(KEY_MENU_OPACITY, value).apply()
+
     var lockGesture
         get() = db.getBoolean(KEY_LOCK_GESTURE, false)
         set(value) = db.edit().putBoolean(KEY_LOCK_GESTURE, value).apply()
@@ -77,5 +82,6 @@ class AppSettings @Inject constructor(private val context: Context) {
         const val KEY_CALLS_MODE = "gamespace_calls_mode"
         const val KEY_RINGER_MODE = "gamespace_ringer_mode"
         const val KEY_LOCK_GESTURE = "gamespace_lock_gesture"
+        const val KEY_MENU_OPACITY = "gamespace_menu_opacity"
     }
 }

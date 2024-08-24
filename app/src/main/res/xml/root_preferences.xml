@@ -77,6 +77,14 @@
             android:defaultValue="false"
             android:key="gamespace_lock_gesture"
             android:title="@string/lock_gesture_title" />
+            
+        <com.crdroid.settings.preferences.CustomSeekBarPreference
+            android:key="gamespace_menu_opacity"
+            android:title="@string/gamespace_menu_opacity_title"
+            android:defaultValue="75"
+            android:max="100"
+            app:min="0"
+            app:units="%" />
 
     </PreferenceCategory>
 
