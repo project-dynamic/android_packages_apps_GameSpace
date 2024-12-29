@@ -23,7 +23,7 @@ import com.google.gson.Gson
 import io.chaldeaprjkt.gamespace.utils.GameModeUtils
 import javax.inject.Inject
 
-private const val gameSwitchNode = "/proc/touchpanel/game_switch_enable"
+private const val gameSwitchNode = "/sys/devices/platform/goodix_ts.0/switch_report_rate"
 class GameSession @Inject constructor(
     private val context: Context,
     private val appSettings: AppSettings,
